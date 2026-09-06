@@ -35,6 +35,11 @@ local function newProfile()
 		lastDig = 0,
 		windowStart = 0,
 		windowCount = 0,
+
+		-- Penanda waktu untuk log gerbang. Gerbang minggu 2 menuntut satu
+		-- sesi panjang dengan tiap pembelian ditandai, dan mencatatnya
+		-- otomatis jauh lebih dapat dipercaya daripada mengingat sambil main.
+		sessionStart = os.clock(),
 	}
 end
 

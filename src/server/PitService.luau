@@ -24,6 +24,13 @@ local PitService = {}
 PitService.ballsRemaining = Config.Pit.TotalBalls
 PitService.settleDebt = 0
 PitService.settleAccum = 0
+
+-- Total bola yang sudah mengalir balik sejak kolam ini dimulai. Ada murni
+-- supaya longsor punya angka yang bisa dilihat pemain. Tanpa ini, upgrade
+-- dinding meredam sesuatu yang tidak pernah muncul di layar, dan pemain
+-- tidak punya cara menilai apakah 3500 cash itu sepadan.
+PitService.settledTotal = 0
+
 PitService.startedAt = os.clock()
 PitService.cleared = false
 PitService.part = nil
@@ -117,6 +124,7 @@ function PitService.step(dt: number)
 
 	PitService.settleDebt -= back
 	PitService.ballsRemaining += back
+	PitService.settledTotal += back
 	PitService.updateVisual()
 end
 
@@ -124,6 +132,7 @@ function PitService.reset()
 	PitService.ballsRemaining = Config.Pit.TotalBalls
 	PitService.settleDebt = 0
 	PitService.settleAccum = 0
+	PitService.settledTotal = 0
 	PitService.cleared = false
 	PitService.startedAt = os.clock()
 	PitService.updateVisual()
@@ -149,6 +158,7 @@ function PitService.updateVisual()
 	-- Ini satu-satunya cara client tahu isi kolam — tidak ada remote per-frame.
 	workspace:SetAttribute("BallsRemaining", math.floor(PitService.ballsRemaining))
 	workspace:SetAttribute("BallsTotal", pit.TotalBalls)
+	workspace:SetAttribute("BallsSettled", math.floor(PitService.settledTotal))
 end
 
 -- ---------------------------------------------------------------- dunia

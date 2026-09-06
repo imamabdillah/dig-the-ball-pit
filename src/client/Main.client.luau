@@ -121,7 +121,7 @@ local function label(parent: Instance, size: UDim2, position: UDim2, textSize: n
 end
 
 local panel = Instance.new("Frame")
-panel.Size = UDim2.fromOffset(280, 116)
+panel.Size = UDim2.fromOffset(300, 140)
 panel.Position = UDim2.fromOffset(16, 16)
 panel.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
 panel.BackgroundTransparency = 0.25
@@ -137,7 +137,18 @@ local bagLabel = label(panel, UDim2.new(1, -20, 0, 22), UDim2.fromOffset(12, 36)
 local pitLabel = label(panel, UDim2.new(1, -20, 0, 22), UDim2.fromOffset(12, 60), 16)
 local toolLabel = label(panel, UDim2.new(1, -20, 0, 22), UDim2.fromOffset(12, 84), 14)
 
-local toast = label(gui, UDim2.fromOffset(400, 26), UDim2.new(0, 16, 0, 140), 16)
+--[[
+	Baris longsor. Ini satu-satunya tempat pemain bisa melihat apa yang
+	dibeli upgrade dinding: laju efektif turun 30% ke 19% ke 12%, dan
+	penghitung bola yang kembali melambat mengikutinya.
+
+	Sampai lubang dan animasi longsornya ada di minggu 3, angka inilah
+	seluruh umpan baliknya.
+]]
+local settleLabel = label(panel, UDim2.new(1, -20, 0, 22), UDim2.fromOffset(12, 108), 14)
+settleLabel.TextColor3 = Color3.fromRGB(240, 150, 120)
+
+local toast = label(gui, UDim2.fromOffset(400, 26), UDim2.new(0, 16, 0, 164), 16)
 toast.TextColor3 = Color3.fromRGB(120, 235, 170)
 
 local shop = Instance.new("Frame")
@@ -208,8 +219,16 @@ task.spawn(function()
 		pitLabel.Text = string.format("Kolam  %d / %d bola", remaining, total)
 
 		local toolName = Config.levelName("tool", player:GetAttribute("ToolLevel") or 1) or "?"
+		toolLabel.Text = string.format("%s  %d/sedot", toolName, perDig)
+
+		-- Laju efektif dihitung di client dari angka yang sama dengan server:
+		-- BaseRate dikurangi peredaman dinding. Menampilkan hasilnya, bukan
+		-- persen dindingnya, karena yang pemain butuh tahu adalah berapa
+		-- banyak bola yang masih hilang - bukan seberapa bagus dindingnya.
 		local wallReduction = player:GetAttribute("WallReduction") or 0
-		toolLabel.Text = string.format("%s  %d/sedot   dinding %d%%", toolName, perDig, math.floor(wallReduction * 100))
+		local effectiveRate = Config.Settle.BaseRate * (1 - wallReduction)
+		local settled = workspace:GetAttribute("BallsSettled") or 0
+		settleLabel.Text = string.format("Longsor  %d%%   sudah balik %d bola", math.floor(effectiveRate * 100 + 0.5), settled)
 
 		for _, line in Config.UpgradeOrder do
 			local definition = Config.Upgrades[line]

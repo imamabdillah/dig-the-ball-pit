@@ -225,6 +225,28 @@ Remotes.BuyUpgrade.OnServerEvent:Connect(function(player: Player, line: any)
 	profile.levels[line] = current + 1
 	PlayerData.sync(player)
 	notify(player, string.format("%s: %s", definition.Label, nextLevel.Name))
+
+	--[[
+		Log gerbang. Satu baris per pembelian, cukup untuk menjawab dua
+		pertanyaan tuning yang tidak bisa dijawab dari ingatan: berapa lama
+		sampai pembelian pertama, dan apakah ada jeda lebih dari empat menit
+		di antara dua pembelian.
+
+		Hapus blok ini setelah kurvanya terkunci - print tiap pembelian
+		tidak ada gunanya di produksi.
+	]]
+	local t = math.floor(os.clock() - profile.sessionStart)
+	print(string.format(
+		"[gerbang] %02d:%02d  %s -> %s (%d)  sisa cash %d  kolam %d  tergali %d",
+		math.floor(t / 60),
+		t % 60,
+		line,
+		nextLevel.Name,
+		nextLevel.Cost,
+		math.floor(profile.cash),
+		math.floor(PitService.ballsRemaining),
+		profile.ballsDug
+	))
 end)
 
 -- ---------------------------------------------------------------- heartbeat
@@ -251,6 +273,12 @@ RunService.Heartbeat:Connect(function(dt: number)
 		Remotes.Notify:FireAllClients(
 			string.format("Kolam kosong dalam %d:%02d — reset 5 detik", math.floor(seconds / 60), seconds % 60)
 		)
+		print(string.format(
+			"[gerbang] KOLAM KOSONG %02d:%02d  target 8-12 menit  longsor mengembalikan %d bola",
+			math.floor(seconds / 60),
+			seconds % 60,
+			math.floor(PitService.settledTotal)
+		))
 		task.delay(5, function()
 			PitService.reset()
 			announced = false
