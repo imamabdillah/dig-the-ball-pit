@@ -99,7 +99,10 @@ end)
 local gui = Instance.new("ScreenGui")
 gui.Name = "PitHud"
 gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
+
+-- IgnoreGuiInset harus false. Dengan true, panel di (16,16) duduk tepat di
+-- bawah tombol menu dan chat milik Roblox sendiri, dan baris Cash tertutup.
+gui.IgnoreGuiInset = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local function label(parent: Instance, size: UDim2, position: UDim2, textSize: number): TextLabel
@@ -147,13 +150,18 @@ local layout = Instance.new("UIListLayout")
 layout.FillDirection = Enum.FillDirection.Horizontal
 layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 layout.Padding = UDim.new(0, 10)
+
+-- Tanpa baris ini UIListLayout memakai SortOrder.Name dan mengurutkan tombol
+-- secara alfabet: bag, tool, wall. Config.UpgradeOrder jadi diabaikan.
+layout.SortOrder = Enum.SortOrder.LayoutOrder
 layout.Parent = shop
 
 local buttons: { [string]: TextButton } = {}
 
-for _, line in Config.UpgradeOrder do
+for index, line in Config.UpgradeOrder do
 	local button = Instance.new("TextButton")
 	button.Name = line
+	button.LayoutOrder = index
 	button.Size = UDim2.fromOffset(190, 52)
 	button.BackgroundColor3 = Color3.fromRGB(28, 32, 40)
 	button.BorderSizePixel = 0

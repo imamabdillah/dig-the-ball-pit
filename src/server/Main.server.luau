@@ -54,17 +54,29 @@ local function validateDig(player: Player, point: Vector3): (boolean, string?)
 
 	local now = os.clock()
 
-	-- 1. jarak antar galian
-	if now - profile.lastDig < Config.Dig.Interval * Config.Dig.IntervalGrace then
-		return false, nil
-	end
+	--[[
+		1. jendela bergulir, menghitung SETIAP permintaan masuk
 
-	-- 2. jendela bergulir
+		Penghitung ini sengaja naik sebelum pemeriksaan apa pun, termasuk
+		untuk permintaan yang akan ditolak. Kalau hanya galian berhasil yang
+		dihitung, client bisa membanjiri server dengan permintaan tidak sah
+		tanpa batas: tidak ada cash yang bocor, tapi server tetap membayar
+		biayanya. Batas jendela harus membatasi lalu lintas, bukan hasil.
+
+		Client sah menembak sekitar 8,6 kali per 3 detik, jadi jatah 12
+		masih menyisakan ruang untuk jitter.
+	]]
 	if now - profile.windowStart > Config.Dig.WindowSeconds then
 		profile.windowStart = now
 		profile.windowCount = 0
 	end
-	if profile.windowCount >= Config.Dig.MaxRequestsPerWindow then
+	profile.windowCount += 1
+	if profile.windowCount > Config.Dig.MaxRequestsPerWindow then
+		return false, nil
+	end
+
+	-- 2. jarak sejak galian terakhir yang BERHASIL
+	if now - profile.lastDig < Config.Dig.Interval * Config.Dig.IntervalGrace then
 		return false, nil
 	end
 
@@ -82,8 +94,29 @@ local function validateDig(player: Player, point: Vector3): (boolean, string?)
 		return false, "Itu bukan permukaan kolam"
 	end
 
+	--[[
+		5. pemain tidak sedang berdiri di zona mati sekitar corong
+
+		Kolom penjualan berdiri di dalam batas kolam, jadi tanpa aturan ini
+		pemain bisa berdiri di dalam corong, menggali, dan kantongnya langsung
+		terjual tiap 0.25 detik. Langkah "lari ke corong" hilang dari loop.
+
+		Akibat terburuknya bukan cash yang terlalu cepat, tapi jalur upgrade
+		kantong yang jadi tidak berguna: kalau jarak lari nol, kapasitas
+		kantong tidak menaikkan laju sama sekali, dan salah satu dari tiga
+		jalur toko mati.
+
+		Diukur dari posisi pemain, bukan titik galian. Yang ingin dipaksa
+		adalah "keluar dari corong untuk menggali", dan pemain yang berdiri
+		di tepi zona mati tetap boleh menggali ke arah dalam.
+	]]
+	local dxs = root.Position.X - Config.Sell.Position.X
+	local dzs = root.Position.Z - Config.Sell.Position.Z
+	if math.sqrt(dxs * dxs + dzs * dzs) < Config.Sell.NoDigRadius then
+		return false, "Menjauh dari corong untuk menggali"
+	end
+
 	profile.lastDig = now
-	profile.windowCount += 1
 	return true, nil
 end
 

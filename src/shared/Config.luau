@@ -54,6 +54,19 @@ Config.Sell = {
 	Radius = 7,
 	Interval = 0.25,
 	CashPerBall = 2,
+
+	--[[
+		Zona mati: pemain tidak bisa menggali sedekat ini dengan corong.
+		Harus lebih besar dari Radius, atau seluruh loop runtuh menjadi
+		"berdiri di corong, tahan klik, cash naik selamanya".
+
+		Knob ini yang menentukan biaya lari, dan lewat itu menentukan apakah
+		upgrade kantong ada gunanya. Jarak lari sekali jalan minimum adalah
+		NoDigRadius dikurangi Radius, di sini 9 stud, sekitar 0,6 detik pada
+		WalkSpeed bawaan. Naikkan kalau kapasitas kantong terasa tidak
+		berdampak; turunkan kalau bolak-baliknya terasa menyiksa.
+	]]
+	NoDigRadius = 16,
 }
 
 -- ---------------------------------------------------------------- longsor
