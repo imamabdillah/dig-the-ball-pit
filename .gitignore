@@ -1,0 +1,11 @@
+# Hasil rakitan build.ps1 - selalu bisa dibuat ulang dari src/
+place.rbxlx
+place.rbxl
+
+# Studio
+*.rbxlx.lock
+*.rbxl.lock
+
+# Toolchain
+/.rojo
+/sourcemap.json
