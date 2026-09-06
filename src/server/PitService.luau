@@ -158,7 +158,7 @@ end
 function PitService.build()
 	local pit = Config.Pit
 
-	-- Place yang dibangun build.ps1 tidak punya lantai. Tanpa ini pemain
+	-- Place hasil `rojo build` tidak punya lantai bawaan. Tanpa ini pemain
 	-- jatuh selamanya di sana, walau di template Studio bawaan aman.
 	if not workspace:FindFirstChild("Baseplate") then
 		local floor = Instance.new("Part")

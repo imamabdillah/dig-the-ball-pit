@@ -6,7 +6,6 @@ tanpa aset, tanpa DataStore — sesuai lingkup minggu 1 di dokumen konsep.
 ## Isi
 
 ```
-build.ps1                     rakit src/ jadi place.rbxlx, tanpa install apa pun
 default.project.json          konfigurasi Rojo
 src/shared/Config.luau        SELURUH angka balance ada di sini
 src/shared/Remotes.luau       tiga RemoteEvent, dibuat server, ditunggu client
@@ -18,41 +17,49 @@ src/client/Main.client.luau   input dan HUD
 
 ## Menjalankan
 
-### Sekarang: build.ps1 — tanpa install apa pun
+Butuh Rojo 7.7 dan plugin Studio-nya. Sekali pasang:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\build.ps1
+```bash
+rojo plugin install
 ```
 
-Menghasilkan `place.rbxlx`. Buka file itu di Studio, tekan Play.
-
-Jalankan ulang tiap kali source berubah. Alurnya satu arah: `src/` sumber
-kebenaran, `place.rbxlx` hasil rakitan. Mengedit skrip di dalam Studio tidak
-akan kembali ke `src/`.
-
-### Nanti: Rojo
+### Harian: sinkron hidup
 
 ```bash
 rojo serve
 ```
 
-Sambungkan dari plugin Rojo di Studio. Sinkron hidup, tidak perlu build ulang
-tiap perubahan. Butuh instalasi Rojo plus plugin Studio-nya. Begitu terpasang,
-hapus `build.ps1`.
+Di Studio, buka panel **Rojo** dari tab Plugins, tekan **Connect**. Simpan file
+di editor, perubahannya langsung masuk ke Studio. Tidak ada build ulang, tidak
+ada buka-tutup place.
+
+Arahnya satu arah: `src/` sumber kebenaran. Mengedit skrip di dalam Studio
+tidak kembali ke `src/`, dan akan tertimpa pada sinkron berikutnya.
+
+### Sesekali: rakit satu file place
+
+```bash
+rojo build default.project.json -o place.rbxlx
+```
+
+Untuk membuka tanpa plugin, atau mengunggah ke Roblox. `place.rbxlx` adalah
+hasil rakitan, bukan sumber — sudah masuk `.gitignore`.
 
 ### Struktur yang dihasilkan
 
-| Instance                                    | Jenis        |
-| ------------------------------------------- | ------------ |
-| `ReplicatedStorage/Shared/Config`           | ModuleScript |
-| `ReplicatedStorage/Shared/Remotes`          | ModuleScript |
-| `ServerScriptService/Server/PitService`     | ModuleScript |
-| `ServerScriptService/Server/PlayerData`     | ModuleScript |
-| `ServerScriptService/Server/Main`           | Script       |
-| `StarterPlayer/StarterPlayerScripts/Client` | LocalScript  |
+| Instance                                         | Jenis        |
+| ------------------------------------------------ | ------------ |
+| `ReplicatedStorage/Shared/Config`                | ModuleScript |
+| `ReplicatedStorage/Shared/Remotes`               | ModuleScript |
+| `ServerScriptService/Server/PitService`          | ModuleScript |
+| `ServerScriptService/Server/PlayerData`          | ModuleScript |
+| `ServerScriptService/Server/Main`                | Script       |
+| `StarterPlayer/StarterPlayerScripts/Client/Main` | LocalScript  |
 
 Nama folder `Shared` dan `Server` harus persis — modul saling mencari lewat
-nama itu. Kalau menyalin tangan ke Studio, susun persis seperti tabel di atas.
+nama itu. Sufiks `.server` dan `.client` pada nama file yang menentukan
+Script versus LocalScript; `Main.client.luau` di `src/client/` menjadi
+LocalScript bernama `Main` di dalam folder `Client`.
 
 Baseplate, spawn, kolam, dan kolom penjualan dibangun otomatis saat runtime.
 Tidak ada yang perlu disusun tangan di Workspace.
