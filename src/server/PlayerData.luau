@@ -1,16 +1,23 @@
 --[[
-	PlayerData — profil pemain, DI MEMORI SAJA.
+	PlayerData - profil pemain.
 
-	Minggu 1 sengaja tanpa DataStore. Progres hilang saat pemain keluar,
-	dan itu benar untuk sekarang: gerbang minggu 1 hanya menanyakan apakah
-	loopnya enak selama 10 menit.
+	Minggu 2 memisahkan profil jadi dua bagian dengan tegas:
 
-	ProfileStore dan session locking masuk di minggu 2 (jebakan #3).
-	Jangan pakai DataStore mentah di sana — tanpa session lock, pemain
-	menggandakan mata uang dengan join dua server sekaligus.
+	  profile.data     yang disimpan. Bentuknya dibuat persis seperti yang
+	                   akan dituliskan ke penyimpanan, jadi memasang
+	                   ProfileStore nanti tidak menyentuh service lain.
 
-	Struktur di bawah sudah dibentuk agar minggu 2 tinggal mengganti
-	newProfile() dengan profile yang dimuat, tanpa menyentuh service lain.
+	  profile.session  yang tidak pernah disimpan: pembukuan rate limit,
+	                   penanda waktu, kantong yang sedang dibawa.
+
+	Kantong sengaja masuk sesi, bukan data. Kalau kantong ikut tersimpan,
+	pemain bisa keluar dengan kantong penuh dan masuk lagi ke server lain
+	untuk menjualnya dua kali. Bola dalam kantong adalah bola yang sudah
+	keluar dari kolam tapi belum jadi cash - satu-satunya tempat aman
+	untuk keadaan itu adalah sesi yang mati bersama servernya.
+
+	Penyimpanan sungguhan menyusul dengan ProfileStore. Sebelum itu
+	terpasang, profil masih hilang saat keluar.
 ]]
 
 local Players = game:GetService("Players")
@@ -23,13 +30,23 @@ local PlayerData = {}
 
 local profiles = {}
 
-local function newProfile()
+function PlayerData.newData()
 	return {
-		-- disimpan nanti
 		cash = 0,
-		bag = 0,
+		gems = 0,
 		levels = { tool = 1, bag = 1, wall = 1 },
+		rebirths = 0,
+
+		-- statistik seumur akun, dipakai leaderboard nanti
 		ballsDug = 0,
+		pitsCleared = 0,
+		bestClearSeconds = 0,
+	}
+end
+
+local function newSession()
+	return {
+		bag = 0,
 
 		-- pembukuan anti-spam, tidak pernah dikirim ke client
 		lastDig = 0,
@@ -47,12 +64,17 @@ function PlayerData.get(player: Player)
 	return profiles[player]
 end
 
+-- Pengali cash dari rebirth. Kumulatif dan permanen.
+function PlayerData.cashMultiplier(profile): number
+	return 1 + profile.data.rebirths * Config.Rebirth.CashMultiplierPerRebirth
+end
+
 --[[
 	Dorong keadaan ke atribut Player. Atribut tereplikasi otomatis, jadi
 	HUD tidak butuh remote sama sekali.
 
 	Yang didorong hanya nilai yang memang boleh dilihat client. Pembukuan
-	rate limit tetap di server — kalau client tahu jendelanya, client bisa
+	rate limit tetap di server - kalau client tahu jendelanya, client bisa
 	mengatur waktunya.
 ]]
 function PlayerData.sync(player: Player)
@@ -61,36 +83,56 @@ function PlayerData.sync(player: Player)
 		return
 	end
 
-	player:SetAttribute("Cash", math.floor(profile.cash))
-	player:SetAttribute("Bag", math.floor(profile.bag))
-	player:SetAttribute("BallsDug", profile.ballsDug)
+	local data = profile.data
 
-	player:SetAttribute("ToolLevel", profile.levels.tool)
-	player:SetAttribute("BagLevel", profile.levels.bag)
-	player:SetAttribute("WallLevel", profile.levels.wall)
+	player:SetAttribute("Cash", math.floor(data.cash))
+	player:SetAttribute("Gems", math.floor(data.gems))
+	player:SetAttribute("Bag", math.floor(profile.session.bag))
+	player:SetAttribute("BallsDug", data.ballsDug)
+	player:SetAttribute("Rebirths", data.rebirths)
+	player:SetAttribute("CashMultiplier", PlayerData.cashMultiplier(profile))
 
-	player:SetAttribute("BallsPerDig", Config.levelValue("tool", profile.levels.tool))
-	player:SetAttribute("BagCapacity", Config.levelValue("bag", profile.levels.bag))
-	player:SetAttribute("WallReduction", Config.levelValue("wall", profile.levels.wall))
+	player:SetAttribute("ToolLevel", data.levels.tool)
+	player:SetAttribute("BagLevel", data.levels.bag)
+	player:SetAttribute("WallLevel", data.levels.wall)
+
+	player:SetAttribute("BallsPerDig", Config.levelValue("tool", data.levels.tool))
+	player:SetAttribute("BagCapacity", Config.levelValue("bag", data.levels.bag))
+	player:SetAttribute("WallReduction", Config.levelValue("wall", data.levels.wall))
+end
+
+--[[
+	Rebirth: reset seluruh belanjaan dan cash, simpan gems dan rekor.
+
+	Mengembalikan tier kolam yang berlaku setelahnya, supaya pemanggil bisa
+	langsung mengisi ulang kolam pada tier itu.
+]]
+function PlayerData.rebirth(player: Player): number
+	local profile = profiles[player]
+	local data = profile.data
+
+	data.rebirths += 1
+	data.cash = 0
+	data.levels = { tool = 1, bag = 1, wall = 1 }
+	profile.session.bag = 0
+
+	PlayerData.sync(player)
+	return Config.pitTierForRebirths(data.rebirths)
 end
 
 function PlayerData.add(player: Player)
-	profiles[player] = newProfile()
+	profiles[player] = {
+		data = PlayerData.newData(),
+		session = newSession(),
+	}
 	PlayerData.sync(player)
+	return profiles[player]
 end
 
 function PlayerData.remove(player: Player)
 	profiles[player] = nil
 end
 
-Players.PlayerAdded:Connect(PlayerData.add)
 Players.PlayerRemoving:Connect(PlayerData.remove)
-
--- Pemain yang sudah join sebelum modul ini sempat berjalan.
-for _, player in Players:GetPlayers() do
-	if not profiles[player] then
-		PlayerData.add(player)
-	end
-end
 
 return PlayerData

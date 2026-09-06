@@ -1,13 +1,13 @@
 --[[
-	Client — input dan HUD kotak abu-abu minggu 1.
+	Client - input dan HUD kotak abu-abu.
 
 	Client TIDAK menghitung apa pun. Ia hanya:
-	  1. menembakkan ray ke kolam dan mengusulkan satu titik ke server
+	  1. menembakkan ray ke kolam MILIKNYA dan mengusulkan satu titik
 	  2. membaca atribut yang tereplikasi dan menggambarnya
 
-	Tidak ada prediksi lokal di minggu 1. Prediksi membuat galian terasa
-	instan, tapi juga menyembunyikan penolakan server — dan penolakan itu
-	justru yang perlu kamu lihat saat menguji validasi.
+	Tidak ada prediksi lokal. Prediksi membuat galian terasa instan, tapi
+	juga menyembunyikan penolakan server - dan penolakan itu justru yang
+	perlu terlihat saat menguji validasi.
 ]]
 
 local Players = game:GetService("Players")
@@ -21,7 +21,13 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
-local pit = workspace:WaitForChild("Pit")
+
+-- Kolam sendiri, bukan kolam siapa pun. Filter ray dibatasi ke part ini
+-- saja, jadi mengarahkan kursor ke kolam tetangga tidak menghasilkan apa-apa
+-- di client - jauh sebelum server sempat menolaknya.
+local world = workspace:WaitForChild("PitWorld")
+local plot = world:WaitForChild("Plot_" .. player.UserId)
+local pitPart = plot:WaitForChild("Pit")
 
 -- ---------------------------------------------------------------- input
 
@@ -31,12 +37,12 @@ local lastFire = 0
 
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Include
-rayParams.FilterDescendantsInstances = { pit }
+rayParams.FilterDescendantsInstances = { pitPart }
 
 --[[
 	ScreenPointToRay (bukan ViewportPointToRay) karena posisi input dan
 	GetMouseLocation sudah memperhitungkan inset GUI di atas layar.
-	Memakai yang salah menggeser ray beberapa puluh piksel ke atas —
+	Memakai yang salah menggeser ray beberapa puluh piksel ke atas -
 	terlihat sebagai "galian meleset sedikit" yang sulit dilacak.
 ]]
 local function pointerPosition(): Vector2
@@ -105,10 +111,10 @@ gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
-local function label(parent: Instance, size: UDim2, position: UDim2, textSize: number): TextLabel
+local function label(parent: Instance, height: number, y: number, textSize: number): TextLabel
 	local text = Instance.new("TextLabel")
-	text.Size = size
-	text.Position = position
+	text.Size = UDim2.new(1, -20, 0, height)
+	text.Position = UDim2.fromOffset(12, y)
 	text.BackgroundTransparency = 1
 	text.Font = Enum.Font.Code
 	text.TextSize = textSize
@@ -121,7 +127,7 @@ local function label(parent: Instance, size: UDim2, position: UDim2, textSize: n
 end
 
 local panel = Instance.new("Frame")
-panel.Size = UDim2.fromOffset(300, 140)
+panel.Size = UDim2.fromOffset(320, 162)
 panel.Position = UDim2.fromOffset(16, 16)
 panel.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
 panel.BackgroundTransparency = 0.25
@@ -132,10 +138,12 @@ local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 6)
 corner.Parent = panel
 
-local cashLabel = label(panel, UDim2.new(1, -20, 0, 26), UDim2.fromOffset(12, 8), 20)
-local bagLabel = label(panel, UDim2.new(1, -20, 0, 22), UDim2.fromOffset(12, 36), 16)
-local pitLabel = label(panel, UDim2.new(1, -20, 0, 22), UDim2.fromOffset(12, 60), 16)
-local toolLabel = label(panel, UDim2.new(1, -20, 0, 22), UDim2.fromOffset(12, 84), 14)
+local cashLabel = label(panel, 26, 8, 20)
+local gemsLabel = label(panel, 22, 36, 15)
+gemsLabel.TextColor3 = Color3.fromRGB(150, 200, 255)
+local bagLabel = label(panel, 22, 58, 16)
+local pitLabel = label(panel, 22, 82, 16)
+local toolLabel = label(panel, 22, 106, 14)
 
 --[[
 	Baris longsor. Ini satu-satunya tempat pemain bisa melihat apa yang
@@ -145,11 +153,15 @@ local toolLabel = label(panel, UDim2.new(1, -20, 0, 22), UDim2.fromOffset(12, 84
 	Sampai lubang dan animasi longsornya ada di minggu 3, angka inilah
 	seluruh umpan baliknya.
 ]]
-local settleLabel = label(panel, UDim2.new(1, -20, 0, 22), UDim2.fromOffset(12, 108), 14)
+local settleLabel = label(panel, 22, 130, 14)
 settleLabel.TextColor3 = Color3.fromRGB(240, 150, 120)
 
-local toast = label(gui, UDim2.fromOffset(400, 26), UDim2.new(0, 16, 0, 164), 16)
+local toast = label(gui, 26, 0, 16)
+toast.Position = UDim2.fromOffset(16, 186)
+toast.Size = UDim2.fromOffset(520, 26)
 toast.TextColor3 = Color3.fromRGB(120, 235, 170)
+
+-- ---------------------------------------------------------------- tombol
 
 local shop = Instance.new("Frame")
 shop.Size = UDim2.new(1, -32, 0, 52)
@@ -167,12 +179,8 @@ layout.Padding = UDim.new(0, 10)
 layout.SortOrder = Enum.SortOrder.LayoutOrder
 layout.Parent = shop
 
-local buttons: { [string]: TextButton } = {}
-
-for index, line in Config.UpgradeOrder do
+local function styledButton(parent: Instance): TextButton
 	local button = Instance.new("TextButton")
-	button.Name = line
-	button.LayoutOrder = index
 	button.Size = UDim2.fromOffset(190, 52)
 	button.BackgroundColor3 = Color3.fromRGB(28, 32, 40)
 	button.BorderSizePixel = 0
@@ -181,11 +189,21 @@ for index, line in Config.UpgradeOrder do
 	button.TextColor3 = Color3.fromRGB(255, 255, 255)
 	button.Text = ""
 	button.AutoButtonColor = true
-	button.Parent = shop
+	button.Parent = parent
 
 	local buttonCorner = Instance.new("UICorner")
 	buttonCorner.CornerRadius = UDim.new(0, 6)
 	buttonCorner.Parent = button
+
+	return button
+end
+
+local buttons: { [string]: TextButton } = {}
+
+for index, line in Config.UpgradeOrder do
+	local button = styledButton(shop)
+	button.Name = line
+	button.LayoutOrder = index
 
 	button.Activated:Connect(function()
 		Remotes.BuyUpgrade:FireServer(line)
@@ -194,9 +212,26 @@ for index, line in Config.UpgradeOrder do
 	buttons[line] = button
 end
 
+--[[
+	Tombol rebirth hanya muncul saat kolam kosong.
+
+	Sengaja tidak diletakkan di deret toko: rebirth menghapus seluruh
+	belanjaan, dan tombol sebesar itu tidak boleh bersebelahan dengan
+	tombol yang ditekan ratusan kali per sesi.
+]]
+local rebirthButton = styledButton(gui)
+rebirthButton.Size = UDim2.fromOffset(300, 46)
+rebirthButton.Position = UDim2.new(0.5, -150, 1, -128)
+rebirthButton.BackgroundColor3 = Color3.fromRGB(96, 62, 140)
+rebirthButton.TextSize = 15
+rebirthButton.Visible = false
+rebirthButton.Activated:Connect(function()
+	Remotes.Rebirth:FireServer()
+end)
+
 Remotes.Notify.OnClientEvent:Connect(function(message: string)
 	toast.Text = message
-	task.delay(2.5, function()
+	task.delay(3, function()
 		if toast.Text == message then
 			toast.Text = ""
 		end
@@ -204,19 +239,29 @@ Remotes.Notify.OnClientEvent:Connect(function(message: string)
 end)
 
 -- Digambar ulang 10 kali per detik. Cukup untuk angka, dan tidak membakar
--- frame budget di HP kelas bawah — target 60 FPS di perangkat terlemah.
+-- frame budget di HP kelas bawah - target 60 FPS di perangkat terlemah.
 task.spawn(function()
 	while gui.Parent do
 		local cash = player:GetAttribute("Cash") or 0
+		local gems = player:GetAttribute("Gems") or 0
 		local bag = player:GetAttribute("Bag") or 0
 		local capacity = player:GetAttribute("BagCapacity") or 0
 		local perDig = player:GetAttribute("BallsPerDig") or 0
-		local remaining = workspace:GetAttribute("BallsRemaining") or 0
-		local total = workspace:GetAttribute("BallsTotal") or Config.Pit.TotalBalls
+		local remaining = player:GetAttribute("BallsRemaining") or 0
+		local total = player:GetAttribute("BallsTotal") or 1
+		local rebirths = player:GetAttribute("Rebirths") or 0
+		local multiplier = player:GetAttribute("CashMultiplier") or 1
+		local pitName = player:GetAttribute("PitName") or "?"
 
-		cashLabel.Text = string.format("Cash  %d", cash)
+		if multiplier > 1 then
+			cashLabel.Text = string.format("Cash  %d   x%.2f", cash, multiplier)
+		else
+			cashLabel.Text = string.format("Cash  %d", cash)
+		end
+
+		gemsLabel.Text = string.format("Gems  %d   rebirth %d", gems, rebirths)
 		bagLabel.Text = string.format("Kantong  %d / %d", bag, capacity)
-		pitLabel.Text = string.format("Kolam  %d / %d bola", remaining, total)
+		pitLabel.Text = string.format("%s  %d / %d", pitName, remaining, total)
 
 		local toolName = Config.levelName("tool", player:GetAttribute("ToolLevel") or 1) or "?"
 		toolLabel.Text = string.format("%s  %d/sedot", toolName, perDig)
@@ -227,7 +272,7 @@ task.spawn(function()
 		-- banyak bola yang masih hilang - bukan seberapa bagus dindingnya.
 		local wallReduction = player:GetAttribute("WallReduction") or 0
 		local effectiveRate = Config.Settle.BaseRate * (1 - wallReduction)
-		local settled = workspace:GetAttribute("BallsSettled") or 0
+		local settled = player:GetAttribute("BallsSettled") or 0
 		settleLabel.Text = string.format("Longsor  %d%%   sudah balik %d bola", math.floor(effectiveRate * 100 + 0.5), settled)
 
 		for _, line in Config.UpgradeOrder do
@@ -243,6 +288,17 @@ task.spawn(function()
 			else
 				button.Text = string.format("%s\nmaksimal", definition.Label)
 				button.BackgroundColor3 = Color3.fromRGB(38, 42, 52)
+			end
+		end
+
+		rebirthButton.Visible = remaining <= 0
+		if rebirthButton.Visible then
+			local unlockAt = Config.nextPitUnlockAt(rebirths)
+			if unlockAt == rebirths + 1 then
+				rebirthButton.Text = "REBIRTH — buka kolam berikutnya"
+			else
+				local nextMultiplier = 1 + (rebirths + 1) * Config.Rebirth.CashMultiplierPerRebirth
+				rebirthButton.Text = string.format("REBIRTH — cash x%.2f, reset semua upgrade", nextMultiplier)
 			end
 		end
 

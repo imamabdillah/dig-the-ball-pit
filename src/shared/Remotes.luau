@@ -1,14 +1,18 @@
 --[[
 	Remotes — dibuat oleh server, ditunggu oleh client.
 
-	Hanya tiga remote di minggu 1. Setiap remote tambahan adalah permukaan
-	serangan tambahan, jadi jangan tambah sebelum benar-benar butuh.
+	Empat remote. Setiap remote tambahan adalah permukaan serangan tambahan,
+	jadi jangan tambah sebelum benar-benar butuh.
+
+	Rebirth sengaja tanpa argumen sama sekali. Tidak ada yang perlu dikirim
+	client - server sudah tahu siapa pemanggilnya, berapa rebirth-nya, dan
+	apakah kolamnya kosong.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local NAMES = { "DigRequest", "BuyUpgrade", "Notify" }
+local NAMES = { "DigRequest", "BuyUpgrade", "Rebirth", "Notify" }
 
 local Remotes = {}
 

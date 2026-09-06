@@ -69,35 +69,57 @@ Tidak ada yang perlu disusun tangan di Workspace.
 - **Tahan klik kiri** (atau tahan sentuh) di permukaan kolam untuk menggali
 - Kantong penuh, jalan ke **kolom hijau** — penjualan otomatis saat masuk radius
 - Tiga tombol di bawah layar untuk upgrade
+- Kolam kosong → tombol **REBIRTH** muncul. Rebirth menghapus seluruh belanjaan
+  dan cash, menyimpan gems, menambah pengali cash permanen, dan pada ambang
+  tertentu membuka kolam yang lebih besar
+
+## Satu kolam per pemain
+
+Tiap pemain mendapat petaknya sendiri, berjarak 140 stud. Rebirth membuka kolam
+yang lebih besar per pemain, jadi satu kolam bersama tidak bisa mewakili dua
+pemain di tier berbeda.
+
+Jarak petak itu juga yang mengamankan galian: `Dig.MaxDistance` hanya 12 stud,
+jadi tidak ada posisi berdiri yang bisa menjangkau dua kolam sekaligus.
 
 ## Yang dijaga server
 
-Client hanya boleh mengusulkan dua hal: satu `Vector3` titik galian, dan satu
-nama jalur upgrade. Semua sisanya dihitung server.
+Client hanya boleh mengusulkan tiga hal: satu `Vector3` titik galian, satu nama
+jalur upgrade, dan permintaan rebirth tanpa argumen. Semua sisanya dihitung
+server.
 
-Empat pemeriksaan sebelum sebutir bola berpindah, di `Main.server.luau`:
+Enam pemeriksaan sebelum sebutir bola berpindah, di `Main.server.luau`:
 
-1. Jarak antar galian minimal `Interval × 0.85` — 15% kelonggaran untuk jitter
-2. Rate limit jendela bergulir, maksimal 12 permintaan per 3 detik
+1. Rate limit jendela bergulir, maksimal 12 permintaan per 3 detik — menghitung
+   **setiap** permintaan masuk, bukan hanya yang berhasil
+2. Jarak sejak galian terakhir yang berhasil, minimal `Interval × 0.85`
 3. Jarak pemain ke titik galian di bawah 12 stud
-4. Titik galian memang di permukaan kolam, bukan di dalam badannya
+4. Titik galian di permukaan kolam **milik pemain itu**
+5. Pemain tidak berdiri di zona mati sekitar corong
+6. Kantong masih ada ruang
 
 Pemeriksaan 1 dan 2 gagal dalam permainan normal, jadi ditolak diam-diam.
-Pemeriksaan 3 dan 4 hanya bisa gagal kalau client berbohong, jadi dilaporkan.
+Sisanya dilaporkan ke pemain.
 
 Cash tidak pernah dihitung di client, bahkan untuk tampilan. HUD membaca
 atribut yang ditulis server.
+
+Kantong sengaja tidak ikut disimpan. Bola dalam kantong sudah keluar dari kolam
+tapi belum jadi cash; kalau keadaan itu ikut tersimpan, pemain bisa keluar
+dengan kantong penuh dan menjualnya lagi di server lain.
 
 ## Menyetel angka
 
 Semua di `src/shared/Config.luau`. Yang paling sering perlu digeser:
 
-| Knob                     | Sekarang | Pengaruh                             |
-| ------------------------ | -------- | ------------------------------------ |
-| `Sell.CashPerBall`       | 2        | kecepatan seluruh ekonomi            |
-| `Upgrades.tool` cost     | 150      | waktu ke pembelian pertama           |
-| `Settle.BaseRate`        | 0.30     | seberapa menyakitkan longsor         |
-| `Pit.TotalBalls`         | 5000     | panjang satu putaran kolam           |
+| Knob                       | Sekarang | Pengaruh                           |
+| -------------------------- | -------- | ---------------------------------- |
+| `Sell.CashPerBall`         | 2        | kecepatan seluruh ekonomi          |
+| `Upgrades.tool` cost       | 150      | waktu ke pembelian pertama         |
+| `Settle.BaseRate`          | 0.30     | seberapa menyakitkan longsor       |
+| `Sell.NoDigRadius`         | 16       | biaya lari, dan nilai jalur kantong |
+| `Pit.Tiers[n].TotalBalls`  | 5000+    | panjang satu putaran kolam         |
+| `Rebirth.UnlocksPitAt`     | 1,3,6,10 | seberapa jauh kolam berikutnya     |
 
 Harga di sini lebih murah dari tabel dokumen konsep. Dengan harga dokumen
 (Ember 250), pembelian pertama butuh ~3 menit; itu terlalu lama untuk

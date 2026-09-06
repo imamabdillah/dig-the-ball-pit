@@ -1,12 +1,13 @@
 --[[
-	Main — seluruh aturan permainan dan SELURUH validasi, di satu file.
+	Main - seluruh aturan permainan dan SELURUH validasi, di satu file.
 
 	Ditaruh bersama supaya bisa dibaca sekali jalan saat audit. Begitu
 	validasi tersebar ke lima file, tidak ada lagi yang bisa menjawab
 	"apa saja yang dipercaya dari client?" dengan yakin.
 
-	Jawabannya di sini: client hanya boleh mengusulkan SATU Vector3 dan
-	SATU nama jalur upgrade. Semua sisanya dihitung server.
+	Jawabannya di sini: client hanya boleh mengusulkan SATU Vector3, SATU
+	nama jalur upgrade, dan permintaan rebirth tanpa argumen. Semua sisanya
+	dihitung server.
 ]]
 
 local Players = game:GetService("Players")
@@ -20,7 +21,12 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local PitService = require(script.Parent:WaitForChild("PitService"))
 local PlayerData = require(script.Parent:WaitForChild("PlayerData"))
 
-PitService.build()
+--[[
+	Karakter dimuat manual. Kolam dan RespawnLocation harus sudah ada
+	SEBELUM karakter pertama muncul, atau Roblox melempar pemain ke petak
+	acak dan mereka mendarat di kolam orang lain.
+]]
+Players.CharacterAutoLoads = false
 
 -- ---------------------------------------------------------------- util
 
@@ -36,15 +42,36 @@ local function notify(player: Player, message: string)
 	Remotes.Notify:FireClient(player, message)
 end
 
+local function stamp(profile): string
+	local t = math.floor(os.clock() - profile.session.sessionStart)
+	return string.format("%02d:%02d", math.floor(t / 60), t % 60)
+end
+
+-- ---------------------------------------------------------------- join
+
+Players.PlayerAdded:Connect(function(player: Player)
+	local profile = PlayerData.add(player)
+	PitService.create(player, Config.pitTierForRebirths(profile.data.rebirths))
+	player:LoadCharacter()
+end)
+
+for _, player in Players:GetPlayers() do
+	if not PlayerData.get(player) then
+		local profile = PlayerData.add(player)
+		PitService.create(player, Config.pitTierForRebirths(profile.data.rebirths))
+		player:LoadCharacter()
+	end
+end
+
 -- ---------------------------------------------------------------- menggali
 
 --[[
-	Empat pemeriksaan, berurutan dari yang termurah.
+	Enam pemeriksaan, berurutan dari yang termurah.
 
-	Dua yang pertama gagal dalam permainan normal (jitter jaringan), jadi
-	diam-diam saja — memberi pesan error di situ hanya membuat HUD berkedip.
-	Dua terakhir hanya bisa gagal kalau client berbohong, jadi itu yang
-	dilaporkan.
+	Yang gagal dalam permainan normal (jitter jaringan) ditolak diam-diam;
+	memberi pesan error di situ hanya membuat HUD berkedip. Yang hanya bisa
+	gagal kalau client berbohong, atau kalau pemain memang salah posisi,
+	itu yang dilaporkan.
 ]]
 local function validateDig(player: Player, point: Vector3): (boolean, string?)
 	local profile = PlayerData.get(player)
@@ -52,6 +79,12 @@ local function validateDig(player: Player, point: Vector3): (boolean, string?)
 		return false, nil
 	end
 
+	local pit = PitService.get(player)
+	if not pit then
+		return false, nil
+	end
+
+	local session = profile.session
 	local now = os.clock()
 
 	--[[
@@ -62,21 +95,18 @@ local function validateDig(player: Player, point: Vector3): (boolean, string?)
 		dihitung, client bisa membanjiri server dengan permintaan tidak sah
 		tanpa batas: tidak ada cash yang bocor, tapi server tetap membayar
 		biayanya. Batas jendela harus membatasi lalu lintas, bukan hasil.
-
-		Client sah menembak sekitar 8,6 kali per 3 detik, jadi jatah 12
-		masih menyisakan ruang untuk jitter.
 	]]
-	if now - profile.windowStart > Config.Dig.WindowSeconds then
-		profile.windowStart = now
-		profile.windowCount = 0
+	if now - session.windowStart > Config.Dig.WindowSeconds then
+		session.windowStart = now
+		session.windowCount = 0
 	end
-	profile.windowCount += 1
-	if profile.windowCount > Config.Dig.MaxRequestsPerWindow then
+	session.windowCount += 1
+	if session.windowCount > Config.Dig.MaxRequestsPerWindow then
 		return false, nil
 	end
 
 	-- 2. jarak sejak galian terakhir yang BERHASIL
-	if now - profile.lastDig < Config.Dig.Interval * Config.Dig.IntervalGrace then
+	if now - session.lastDig < Config.Dig.Interval * Config.Dig.IntervalGrace then
 		return false, nil
 	end
 
@@ -89,9 +119,16 @@ local function validateDig(player: Player, point: Vector3): (boolean, string?)
 		return false, "Terlalu jauh dari titik galian"
 	end
 
-	-- 4. titiknya memang permukaan kolam
-	if not PitService.isPointOnSurface(point) then
-		return false, "Itu bukan permukaan kolam"
+	--[[
+		4. titiknya permukaan kolam MILIK PEMAIN INI
+
+		Pit yang diperiksa selalu milik pemanggil, jadi menggali kolam
+		tetangga otomatis jatuh di luar batas. Petak berjarak 140 stud
+		sementara MaxDistance hanya 12, jadi tidak ada posisi berdiri yang
+		bisa menjangkau dua kolam sekaligus.
+	]]
+	if not PitService.isPointOnSurface(pit, point) then
+		return false, "Itu bukan permukaan kolammu"
 	end
 
 	--[[
@@ -103,26 +140,21 @@ local function validateDig(player: Player, point: Vector3): (boolean, string?)
 
 		Akibat terburuknya bukan cash yang terlalu cepat, tapi jalur upgrade
 		kantong yang jadi tidak berguna: kalau jarak lari nol, kapasitas
-		kantong tidak menaikkan laju sama sekali, dan salah satu dari tiga
-		jalur toko mati.
-
-		Diukur dari posisi pemain, bukan titik galian. Yang ingin dipaksa
-		adalah "keluar dari corong untuk menggali", dan pemain yang berdiri
-		di tepi zona mati tetap boleh menggali ke arah dalam.
+		kantong tidak menaikkan laju sama sekali.
 	]]
-	local dxs = root.Position.X - Config.Sell.Position.X
-	local dzs = root.Position.Z - Config.Sell.Position.Z
+	local sell = PitService.sellPosition(pit)
+	local dxs = root.Position.X - sell.X
+	local dzs = root.Position.Z - sell.Z
 	if math.sqrt(dxs * dxs + dzs * dzs) < Config.Sell.NoDigRadius then
 		return false, "Menjauh dari corong untuk menggali"
 	end
 
-	profile.lastDig = now
+	session.lastDig = now
 	return true, nil
 end
 
 Remotes.DigRequest.OnServerEvent:Connect(function(player: Player, point: any)
 	-- Argumen remote datang dari client, jadi tipenya diperiksa lebih dulu.
-	-- Tanpa baris ini, satu FireServer(nil) melempar error di server.
 	if typeof(point) ~= "Vector3" then
 		return
 	end
@@ -136,23 +168,25 @@ Remotes.DigRequest.OnServerEvent:Connect(function(player: Player, point: any)
 	end
 
 	local profile = PlayerData.get(player)
-	local capacity = Config.levelValue("bag", profile.levels.bag) or 0
-	local perDig = Config.levelValue("tool", profile.levels.tool) or 0
+	local pit = PitService.get(player)
+	local data = profile.data
 
-	local room = capacity - profile.bag
+	local capacity = Config.levelValue("bag", data.levels.bag) or 0
+	local perDig = Config.levelValue("tool", data.levels.tool) or 0
+
+	local room = capacity - profile.session.bag
 	if room <= 0 then
 		notify(player, "Kantong penuh — buang dulu")
 		return
 	end
 
-	local wanted = math.min(perDig, room)
-	local taken = PitService.remove(wanted, Config.levelValue("wall", profile.levels.wall))
+	local taken = PitService.remove(pit, math.min(perDig, room), Config.levelValue("wall", data.levels.wall))
 	if taken <= 0 then
 		return
 	end
 
-	profile.bag += taken
-	profile.ballsDug += taken
+	profile.session.bag += taken
+	data.ballsDug += taken
 	PlayerData.sync(player)
 end)
 
@@ -161,33 +195,31 @@ end)
 --[[
 	Penjualan otomatis berdasarkan jarak, bukan event Touched.
 
-	Touched bisa dipicu client dengan menggerakkan karakternya, dan
-	pemeriksaan jaraknya sama saja — tapi loop ini tidak bisa di-spam,
-	dan tidak ada remote yang perlu dijaga.
-
 	Jarak diukur hanya di XZ, jadi kolom penjualan bekerja di ketinggian
 	permukaan mana pun tanpa perlu tangga.
 ]]
 local function trySell(player: Player)
 	local profile = PlayerData.get(player)
-	if not profile or profile.bag <= 0 then
+	if not profile or profile.session.bag <= 0 then
 		return
 	end
 
+	local pit = PitService.get(player)
 	local root = rootOf(player)
-	if not root then
+	if not pit or not root then
 		return
 	end
 
-	local dx = root.Position.X - Config.Sell.Position.X
-	local dz = root.Position.Z - Config.Sell.Position.Z
+	local sell = PitService.sellPosition(pit)
+	local dx = root.Position.X - sell.X
+	local dz = root.Position.Z - sell.Z
 	if math.sqrt(dx * dx + dz * dz) > Config.Sell.Radius then
 		return
 	end
 
-	local earned = profile.bag * Config.Sell.CashPerBall
-	profile.cash += earned
-	profile.bag = 0
+	local earned = math.floor(profile.session.bag * Config.Sell.CashPerBall * PlayerData.cashMultiplier(profile))
+	profile.data.cash += earned
+	profile.session.bag = 0
 	PlayerData.sync(player)
 	notify(player, string.format("+%d cash", earned))
 end
@@ -209,20 +241,21 @@ Remotes.BuyUpgrade.OnServerEvent:Connect(function(player: Player, line: any)
 		return
 	end
 
-	local current = profile.levels[line]
+	local data = profile.data
+	local current = data.levels[line]
 	local nextLevel = Config.nextLevel(line, current)
 	if not nextLevel then
 		notify(player, definition.Label .. " sudah maksimal")
 		return
 	end
 
-	if profile.cash < nextLevel.Cost then
-		notify(player, string.format("Kurang %d cash", nextLevel.Cost - math.floor(profile.cash)))
+	if data.cash < nextLevel.Cost then
+		notify(player, string.format("Kurang %d cash", nextLevel.Cost - math.floor(data.cash)))
 		return
 	end
 
-	profile.cash -= nextLevel.Cost
-	profile.levels[line] = current + 1
+	data.cash -= nextLevel.Cost
+	data.levels[line] = current + 1
 	PlayerData.sync(player)
 	notify(player, string.format("%s: %s", definition.Label, nextLevel.Name))
 
@@ -232,27 +265,102 @@ Remotes.BuyUpgrade.OnServerEvent:Connect(function(player: Player, line: any)
 		sampai pembelian pertama, dan apakah ada jeda lebih dari empat menit
 		di antara dua pembelian.
 
-		Hapus blok ini setelah kurvanya terkunci - print tiap pembelian
-		tidak ada gunanya di produksi.
+		Hapus blok ini setelah kurvanya terkunci.
 	]]
-	local t = math.floor(os.clock() - profile.sessionStart)
+	local pit = PitService.get(player)
 	print(string.format(
-		"[gerbang] %02d:%02d  %s -> %s (%d)  sisa cash %d  kolam %d  tergali %d",
-		math.floor(t / 60),
-		t % 60,
+		"[gerbang] %s  %s -> %s (%d)  sisa cash %d  kolam %d  tergali %d",
+		stamp(profile),
 		line,
 		nextLevel.Name,
 		nextLevel.Cost,
-		math.floor(profile.cash),
-		math.floor(PitService.ballsRemaining),
-		profile.ballsDug
+		math.floor(data.cash),
+		pit and math.floor(pit.ballsRemaining) or -1,
+		data.ballsDug
+	))
+end)
+
+-- ---------------------------------------------------------------- rebirth
+
+Remotes.Rebirth.OnServerEvent:Connect(function(player: Player)
+	local profile = PlayerData.get(player)
+	local pit = PitService.get(player)
+	if not profile or not pit then
+		return
+	end
+
+	--[[
+		Syaratnya mengosongkan kolam, bukan menumpuk cash.
+
+		"Kolam kosong" adalah gerbang hadiah yang menahan pemain sampai
+		akhir sesi. Menggantung rebirth tepat di baliknya berarti hadiah
+		terbesar dan alasan terkuat untuk lanjut tiba di saat yang sama.
+	]]
+	if Config.Rebirth.RequiresPitCleared and not pit.cleared then
+		notify(player, "Kosongkan kolam dulu untuk rebirth")
+		return
+	end
+
+	local before = profile.data.rebirths
+	local tier = PlayerData.rebirth(player)
+	PitService.setTier(pit, tier)
+
+	local unlocked = Config.Rebirth.UnlocksPitAt[profile.data.rebirths]
+	if unlocked then
+		notify(player, string.format("Rebirth %d — kolam baru: %s", profile.data.rebirths, pit.tierName))
+	else
+		notify(player, string.format("Rebirth %d — cash x%.2f", profile.data.rebirths, PlayerData.cashMultiplier(profile)))
+	end
+
+	print(string.format(
+		"[gerbang] %s  REBIRTH %d -> %d  kolam tier %d (%s)  pengali x%.2f",
+		stamp(profile),
+		before,
+		profile.data.rebirths,
+		pit.tierIndex,
+		pit.tierName,
+		PlayerData.cashMultiplier(profile)
 	))
 end)
 
 -- ---------------------------------------------------------------- heartbeat
 
 local sellAccum = 0
-local announced = false
+
+local function onPitCleared(player: Player, pit)
+	local profile = PlayerData.get(player)
+	if not profile then
+		return
+	end
+
+	local data = profile.data
+	local seconds = math.floor(PitService.elapsed(pit))
+	local gems = Config.ClearReward.GemsPerTier[pit.tierIndex] or 0
+
+	data.gems += gems
+	data.pitsCleared += 1
+	if data.bestClearSeconds == 0 or seconds < data.bestClearSeconds then
+		data.bestClearSeconds = seconds
+	end
+	PlayerData.sync(player)
+
+	notify(player, string.format(
+		"%s kosong dalam %d:%02d — +%d gems. Rebirth sekarang.",
+		pit.tierName,
+		math.floor(seconds / 60),
+		seconds % 60,
+		gems
+	))
+
+	print(string.format(
+		"[gerbang] %s  KOLAM KOSONG %s dalam %02d:%02d  target 8-12 menit  longsor mengembalikan %d bola",
+		stamp(profile),
+		pit.tierName,
+		math.floor(seconds / 60),
+		seconds % 60,
+		math.floor(pit.settledTotal)
+	))
+end
 
 RunService.Heartbeat:Connect(function(dt: number)
 	PitService.step(dt)
@@ -265,25 +373,21 @@ RunService.Heartbeat:Connect(function(dt: number)
 		end
 	end
 
-	if PitService.cleared and not announced then
-		announced = true
-		-- Dibulatkan ke bilangan bulat lebih dulu: string.format("%d", x)
-		-- menolak angka yang masih punya bagian pecahan.
-		local seconds = math.floor(PitService.elapsed())
-		Remotes.Notify:FireAllClients(
-			string.format("Kolam kosong dalam %d:%02d — reset 5 detik", math.floor(seconds / 60), seconds % 60)
-		)
-		print(string.format(
-			"[gerbang] KOLAM KOSONG %02d:%02d  target 8-12 menit  longsor mengembalikan %d bola",
-			math.floor(seconds / 60),
-			seconds % 60,
-			math.floor(PitService.settledTotal)
-		))
-		task.delay(5, function()
-			PitService.reset()
-			announced = false
-		end)
+	for _, player in Players:GetPlayers() do
+		local pit = PitService.get(player)
+		--[[
+			Kolam yang kosong TIDAK di-reset otomatis lagi.
+
+			Di minggu 1 reset otomatis masuk akal karena tidak ada apa pun
+			setelah pengosongan. Sekarang pengosongan adalah gerbang rebirth,
+			jadi kolam harus tetap kosong sampai pemain menekan rebirth -
+			kalau tidak, gerbangnya lewat begitu saja tanpa sempat dipakai.
+		]]
+		if pit and pit.cleared and not pit.announced then
+			pit.announced = true
+			onPitCleared(player, pit)
+		end
 	end
 end)
 
-print("[DigTheBallPit] server siap — kolam", Config.Pit.TotalBalls, "bola")
+print("[DigTheBallPit] server siap — kolam per pemain, tier 1..", #Config.Pit.Tiers)
