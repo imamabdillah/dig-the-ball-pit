@@ -49,17 +49,31 @@ end
 
 -- ---------------------------------------------------------------- join
 
-Players.PlayerAdded:Connect(function(player: Player)
-	local profile = PlayerData.add(player)
+--[[
+	Pemuatan profil memblokir sampai session lock didapat, jadi kolam dan
+	karakter baru dibangun SETELAH datanya ada. Urutan ini penting: tier
+	kolam ditentukan oleh jumlah rebirth yang tersimpan, dan membangun
+	kolam sebelum data dimuat akan selalu memberi tier 1.
+
+	load() mengembalikan nil kalau pemain keluar duluan atau sesinya tidak
+	bisa didapat - keduanya sudah menendang pemainnya sendiri, jadi di sini
+	cukup berhenti.
+]]
+local function onPlayerAdded(player: Player)
+	local profile = PlayerData.load(player)
+	if not profile then
+		return
+	end
+
 	PitService.create(player, Config.pitTierForRebirths(profile.data.rebirths))
 	player:LoadCharacter()
-end)
+end
+
+Players.PlayerAdded:Connect(onPlayerAdded)
 
 for _, player in Players:GetPlayers() do
 	if not PlayerData.get(player) then
-		local profile = PlayerData.add(player)
-		PitService.create(player, Config.pitTierForRebirths(profile.data.rebirths))
-		player:LoadCharacter()
+		task.spawn(onPlayerAdded, player)
 	end
 end
 

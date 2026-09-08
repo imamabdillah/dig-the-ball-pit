@@ -193,6 +193,30 @@ Config.ClearReward = {
 	GemsPerTier = { 25, 150, 900, 5000, 30000 },
 }
 
+-- ---------------------------------------------------------------- simpan
+
+Config.Save = {
+	--[[
+		Nama DataStore. Beri akhiran versi dan NAIKKAN kalau bentuk data
+		berubah tidak kompatibel. Menulis bentuk baru ke nama lama akan
+		merusak profil pemain yang sudah ada, dan itu tidak bisa dibatalkan.
+	]]
+	StoreName = "PlayerData_v1",
+
+	--[[
+		Pakai penyimpanan tiruan di Studio.
+
+		DataStore sungguhan butuh dua hal yang belum ada: Studio Access to
+		API Services menyala, dan place sudah pernah dipublikasikan. Dengan
+		mock, seluruh loop bisa diuji sekarang tanpa keduanya.
+
+		Setel false ketika sudah siap menguji session locking sungguhan -
+		yaitu masuk ke dua server sekaligus dan memastikan gems tidak bisa
+		digandakan. Mock TIDAK menguji itu: mock hidup di memori satu server.
+	]]
+	UseMockInStudio = true,
+}
+
 -- Urutan tombol di HUD.
 Config.UpgradeOrder = { "tool", "bag", "wall" }
 

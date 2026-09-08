@@ -6,14 +6,20 @@ tanpa aset, tanpa DataStore — sesuai lingkup minggu 1 di dokumen konsep.
 ## Isi
 
 ```
-default.project.json          konfigurasi Rojo
-src/shared/Config.luau        SELURUH angka balance ada di sini
-src/shared/Remotes.luau       tiga RemoteEvent, dibuat server, ditunggu client
-src/server/PitService.luau    keadaan kolam sebagai satu angka + bangun dunia
-src/server/PlayerData.luau    profil pemain di memori + sinkronisasi atribut
-src/server/Main.server.luau   seluruh aturan dan SELURUH validasi
-src/client/Main.client.luau   input dan HUD
+default.project.json               konfigurasi Rojo
+src/shared/Config.luau             SELURUH angka balance ada di sini
+src/shared/Remotes.luau            empat RemoteEvent, dibuat server, ditunggu client
+src/server/PitService.luau         satu kolam per pemain, satu angka masing-masing
+src/server/PlayerData.luau         profil, session locking, sinkronisasi atribut
+src/server/Main.server.luau        seluruh aturan dan SELURUH validasi
+src/server/vendor/ProfileStore.luau  dependensi pihak ketiga, jangan diedit
+src/client/Main.client.luau        input dan HUD
 ```
+
+`vendor/ProfileStore.luau` disalin apa adanya dari
+[MadStudioRoblox/ProfileStore](https://github.com/MadStudioRoblox/ProfileStore)
+(MIT), commit `9580f7c`. Perbarui dengan mengunduh ulang, jangan menambal
+tangan — tambalan lokal akan hilang pada pembaruan berikutnya.
 
 ## Menjalankan
 
@@ -133,11 +139,35 @@ sesuai target 8–12 menit di dokumen.
 Mainkan sendiri 10 menit tanpa menyentuh apa pun yang lain. Kalau bosan di
 menit ketiga, angkanya yang salah — jangan tambah grafis untuk menutupinya.
 
+## Menyimpan progres
+
+Memakai ProfileStore, bukan DataStore mentah. Yang dibeli dari situ adalah
+**session locking**: satu profil hanya aktif di satu server pada satu waktu.
+Tanpa itu, pemain masuk ke dua server sekaligus, belanja di keduanya, dan yang
+menyimpan terakhir menang — cara paling umum mata uang digandakan di genre ini.
+
+Bawaan saat ini `Config.Save.UseMockInStudio = true`, jadi di Studio semuanya
+memakai penyimpanan tiruan di memori. Itu membuat loop bisa diuji tanpa
+persiapan apa pun, **tapi tidak menguji session locking** — mock hidup di satu
+server dan tidak ada server kedua yang bisa melihatnya.
+
+Untuk menguji penyimpanan sungguhan:
+
+1. Studio → **Game Settings → Security → Enable Studio Access to API Services**
+2. Publikasikan place ke Roblox. DataStore tidak berfungsi di place lokal
+3. Setel `Config.Save.UseMockInStudio = false`
+4. Uji sungguhannya: masuk ke dua server sekaligus dan pastikan yang kedua
+   menendang yang pertama, dan gems tidak bisa digandakan
+
+Kalau bentuk data berubah tidak kompatibel, **naikkan** `Config.Save.StoreName`.
+Menulis bentuk baru ke nama lama merusak profil yang sudah ada, dan itu tidak
+bisa dibatalkan.
+
 ## Diketahui kasar, sengaja dibiarkan
 
-- **Progres hilang saat keluar.** Tanpa DataStore, sesuai lingkup. ProfileStore
-  dan session locking masuk minggu 2.
 - **Karakter tersentak saat kolam menyusut.** Part yang diubah ukurannya di
   bawah pemain yang berdiri. Hilang di minggu 4 saat kolam jadi mesh.
-- **Longsor tanpa efek visual.** Angkanya bekerja, animasinya minggu 3.
-- **Satu kolam saja.** Kolam 2–5 dan rebirth masuk minggu 2.
+- **Longsor tanpa efek visual.** Angkanya bekerja lewat baris HUD, animasinya
+  minggu 3.
+- **Gems belum ada gunanya.** Wadahnya sudah ada; barang hilang dan buku
+  koleksi yang memakainya masuk minggu 3.
