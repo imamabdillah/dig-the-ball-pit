@@ -17,9 +17,13 @@ src/client/Main.client.luau        input dan HUD
 ```
 
 `vendor/ProfileStore.luau` disalin apa adanya dari
-[MadStudioRoblox/ProfileStore](https://github.com/MadStudioRoblox/ProfileStore)
-(MIT), commit `9580f7c`. Perbarui dengan mengunduh ulang, jangan menambal
-tangan — tambalan lokal akan hilang pada pembaruan berikutnya.
+[MadStudioRoblox/ProfileStore](https://github.com/MadStudioRoblox/ProfileStore),
+commit `9580f7c`, lisensi **Apache-2.0**. Salinan lisensinya ada di
+`LICENSES/ProfileStore-Apache-2.0.txt` — Apache-2.0 mewajibkan salinan itu ikut
+disertakan, dan repo ini mendistribusikan ulang kodenya.
+
+Perbarui dengan mengunduh ulang, jangan menambal tangan — tambalan lokal akan
+hilang pada pembaruan berikutnya.
 
 ## Menjalankan
 
