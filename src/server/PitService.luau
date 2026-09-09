@@ -139,6 +139,28 @@ end
 	Isi ulang kolam pada tier tertentu. Dipakai saat kolam kosong dan saat
 	rebirth menaikkan tier.
 ]]
+--[[
+	Angkat pemilik ke pad spawn-nya.
+
+	Wajib dipanggil setiap kali kolam terisi ulang. Kolam yang kosong hanya
+	setinggi MinVisualHeight, jadi pemain berdiri di y sekitar 0.2; mengisi
+	ulang menumbuhkan part solid dari y=0 ke y=12 MENGELILINGI karakternya.
+	Karakter yang terjebak di dalam part solid didorong keluar lewat bawah
+	dan jatuh menembus lantai.
+
+	Tidak melakukan apa-apa saat kolam pertama dibuat, karena karakternya
+	memang belum ada.
+]]
+function PitService.liftOwner(pit)
+	local player = pit.player
+	local character = player and player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root or not pit.spawnPad then
+		return
+	end
+	root.CFrame = pit.spawnPad.CFrame + Vector3.new(0, 5, 0)
+end
+
 function PitService.setTier(pit, tierIndex: number)
 	local tier = Config.pitTier(tierIndex)
 
@@ -157,6 +179,7 @@ function PitService.setTier(pit, tierIndex: number)
 	pit.announced = false
 
 	PitService.sync(pit)
+	PitService.liftOwner(pit)
 end
 
 function PitService.reset(pit)

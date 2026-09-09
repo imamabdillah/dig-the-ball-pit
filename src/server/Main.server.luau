@@ -389,6 +389,17 @@ RunService.Heartbeat:Connect(function(dt: number)
 
 	for _, player in Players:GetPlayers() do
 		local pit = PitService.get(player)
+
+		-- Jaring pengaman jatuh. Mengembalikan pemain yang sudah lolos ke
+		-- bawah dunia, dari sebab apa pun, tanpa menunggu Roblox
+		-- membunuhnya di FallenPartsDestroyHeight.
+		if pit then
+			local root = rootOf(player)
+			if root and root.Position.Y < Config.Pit.FallResetY then
+				PitService.liftOwner(pit)
+			end
+		end
+
 		--[[
 			Kolam yang kosong TIDAK di-reset otomatis lagi.
 

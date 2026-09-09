@@ -27,10 +27,15 @@ Config.Pit = {
 	-- Kolam tidak pernah benar-benar setipis nol; sisakan pijakan.
 	MinVisualHeight = 0.2,
 
+	-- Di bawah ketinggian ini, pemain dianggap jatuh keluar dunia dan
+	-- dikembalikan ke pad-nya. Menutup dua jalan: terdorong keluar saat
+	-- kolam terisi ulang, dan berjalan melewati tepi baseplate.
+	FallResetY = -50,
+
 	-- Tier terbuka lewat rebirth. Ambang di RebirthUnlocksPit.
 	Tiers = {
-		{ Name = "Kolam Anak", TotalBalls = 5000 },
-		{ Name = "Pesta Ultah", TotalBalls = 25000 },
+		{ Name = "Kolam Anak", TotalBalls = 150 },
+		{ Name = "Pesta Ultah", TotalBalls = 400 },
 		{ Name = "Playground Mal", TotalBalls = 100000 },
 		{ Name = "Gudang Bola", TotalBalls = 500000 },
 		{ Name = "Stadion", TotalBalls = 2500000 },
