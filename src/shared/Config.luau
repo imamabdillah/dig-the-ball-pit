@@ -34,8 +34,8 @@ Config.Pit = {
 
 	-- Tier terbuka lewat rebirth. Ambang di RebirthUnlocksPit.
 	Tiers = {
-		{ Name = "Kolam Anak", TotalBalls = 150 },
-		{ Name = "Pesta Ultah", TotalBalls = 400 },
+		{ Name = "Kolam Anak", TotalBalls = 5000 },
+		{ Name = "Pesta Ultah", TotalBalls = 25000 },
 		{ Name = "Playground Mal", TotalBalls = 100000 },
 		{ Name = "Gudang Bola", TotalBalls = 500000 },
 		{ Name = "Stadion", TotalBalls = 2500000 },
