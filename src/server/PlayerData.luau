@@ -70,9 +70,26 @@ function PlayerData.get(player: Player)
 	return profiles[player]
 end
 
--- Pengali cash dari rebirth. Kumulatif dan permanen.
+-- Pengali cash dari rebirth. Berlipat dan permanen.
 function PlayerData.cashMultiplier(profile): number
-	return 1 + profile.data.rebirths * Config.Rebirth.CashMultiplierPerRebirth
+	return Config.cashMultiplier(profile.data.rebirths)
+end
+
+--[[
+	Naikkan tiap jalur ke lantai yang seharusnya dimiliki pada jumlah
+	rebirth ini. Tidak pernah menurunkan apa pun.
+
+	Dipanggil dua kali: sesudah rebirth, dan sesudah profil dimuat. Yang
+	kedua penting - ia membuat aturan lantai berlaku surut, jadi mengubah
+	MaxHeadStart nanti langsung terpakai oleh pemain lama tanpa migrasi.
+]]
+local function applyStartingLevels(data)
+	for line in Config.Upgrades do
+		local floor = Config.startingLevel(line, data.rebirths)
+		if data.levels[line] == nil or data.levels[line] < floor then
+			data.levels[line] = floor
+		end
+	end
 end
 
 --[[
@@ -119,7 +136,13 @@ function PlayerData.rebirth(player: Player): number
 
 	data.rebirths += 1
 	data.cash = 0
+
+	-- Reset ke dasar, lalu naikkan ke lantai yang dibuka rebirth baru ini.
+	-- Urutannya penting: reset dulu supaya pembelian di atas lantai benar
+	-- benar hilang, bukan sekadar dipertahankan.
 	data.levels = { tool = 1, bag = 1, wall = 1 }
+	applyStartingLevels(data)
+
 	profile.session.bag = 0
 
 	PlayerData.sync(player)
@@ -176,6 +199,9 @@ function PlayerData.load(player: Player)
 	-- Mengisi kunci yang belum ada dari template. Ini yang membuat menambah
 	-- field baru ke newData() aman untuk profil lama.
 	profile:Reconcile()
+
+	-- Berlaku surut untuk profil yang disimpan sebelum aturan tier awal ada.
+	applyStartingLevels(profile.Data)
 
 	--[[
 		Sesi berakhir berarti server lain merebut kuncinya, ATAU pemainnya

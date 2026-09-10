@@ -220,10 +220,10 @@ end
 	tombol yang ditekan ratusan kali per sesi.
 ]]
 local rebirthButton = styledButton(gui)
-rebirthButton.Size = UDim2.fromOffset(300, 46)
-rebirthButton.Position = UDim2.new(0.5, -150, 1, -128)
+rebirthButton.Size = UDim2.fromOffset(360, 52)
+rebirthButton.Position = UDim2.new(0.5, -180, 1, -132)
 rebirthButton.BackgroundColor3 = Color3.fromRGB(96, 62, 140)
-rebirthButton.TextSize = 15
+rebirthButton.TextSize = 14
 rebirthButton.Visible = false
 rebirthButton.Activated:Connect(function()
 	Remotes.Rebirth:FireServer()
@@ -293,13 +293,24 @@ task.spawn(function()
 
 		rebirthButton.Visible = remaining <= 0
 		if rebirthButton.Visible then
-			local unlockAt = Config.nextPitUnlockAt(rebirths)
-			if unlockAt == rebirths + 1 then
-				rebirthButton.Text = "REBIRTH — buka kolam berikutnya"
+			--[[
+				Tombol harus menjawab "saya dapat apa", bukan cuma "saya
+				kehilangan apa". Baris kedua menyebut alat dan kantong yang
+				sudah terpasang setelah rebirth - itu yang menghapus rasa
+				kembali ke nol, dan pemain harus melihatnya SEBELUM menekan.
+			]]
+			local nextRebirths = rebirths + 1
+			local toolStart = Config.levelName("tool", Config.startingLevel("tool", nextRebirths)) or "?"
+			local bagStart = Config.levelName("bag", Config.startingLevel("bag", nextRebirths)) or "?"
+
+			local headline
+			if Config.nextPitUnlockAt(rebirths) == nextRebirths then
+				headline = "REBIRTH — buka kolam berikutnya"
 			else
-				local nextMultiplier = 1 + (rebirths + 1) * Config.Rebirth.CashMultiplierPerRebirth
-				rebirthButton.Text = string.format("REBIRTH — cash x%.2f, reset semua upgrade", nextMultiplier)
+				headline = string.format("REBIRTH — cash x%.2f", Config.cashMultiplier(nextRebirths))
 			end
+
+			rebirthButton.Text = string.format("%s\nmulai dari %s + %s", headline, toolStart, bagStart)
 		end
 
 		task.wait(0.1)

@@ -177,8 +177,44 @@ Config.Upgrades = {
 	jarak yang terasa layak ditempuh.
 ]]
 Config.Rebirth = {
-	CashMultiplierPerRebirth = 0.25,
+	--[[
+		Pengali BERLIPAT, bukan bertambah.
+
+		Versi lama memakai 1 + n * 0.25, yang tumbuh linear sementara kolam
+		tumbuh geometrik: 5.000 ke 25.000 ke 100.000 ke 500.000. Rebirth
+		pertama menghadapkan pemain pada kerja 5x lipat dengan hadiah 1,25x.
+		Jaraknya melebar terus, dan rebirth berubah jadi hukuman.
+
+		1,6 pangkat n memberi 1,6 di rebirth 1, 4,1 di rebirth 3, dan 110 di
+		rebirth 10. Masih tertinggal dari pertumbuhan kolam, dan itu memang
+		disengaja - kolam besar harus terasa besar. Yang dihapus jurangnya.
+	]]
+	CashMultiplierBase = 1.6,
+
 	RequiresPitCleared = true,
+
+	--[[
+		Tier awal gratis dari rebirth.
+
+		Pengali menaikkan cash, BUKAN kecepatan menggali. Kecepatan menggali
+		datang dari tier alat, jadi pengali sebesar apa pun tidak menolong
+		pemain yang baru saja dikembalikan ke Tangan 1/sedot.
+
+		Fase paling lambat di setiap sesi adalah pembukaannya: sekitar 2,1
+		bola/detik di Tangan, sekitar 4,8 di Ember. Melewati satu tier saja
+		menggandakan laju pembukaan.
+
+		Dibatasi supaya toko tidak pernah kosong - selalu ada tiga tier lagi
+		untuk dipanjat tiap sesi.
+
+		Dinding sengaja TIDAK ikut. Alat dan kantong adalah pasangan laju,
+		dan itu yang bikin pembukaan menyakitkan. Dinding adalah pilihan,
+		dan membiarkannya dibeli tiap sesi menjaga toko tetap punya
+		keputusan, bukan cuma daftar belanja yang sudah terisi.
+	]]
+	HeadStartPerRebirth = 1,
+	MaxHeadStart = 3,
+	HeadStartLines = { tool = true, bag = true },
 
 	-- Rebirth ke-N membuka kolam tier berapa. Indeks = jumlah rebirth.
 	UnlocksPitAt = {
@@ -260,6 +296,29 @@ function Config.nextLevel(line: string, index: number)
 		return nil
 	end
 	return def.Levels[index + 1]
+end
+
+function Config.cashMultiplier(rebirths: number): number
+	return Config.Rebirth.CashMultiplierBase ^ rebirths
+end
+
+--[[
+	Level terendah yang dimiliki pemain pada jalur ini setelah sekian
+	rebirth. Ini LANTAI, bukan nilai pasti - pemain yang sudah membeli
+	lebih tinggi tetap di atasnya sampai rebirth berikutnya meresetnya
+	kembali ke lantai ini.
+]]
+function Config.startingLevel(line: string, rebirths: number): number
+	local def = Config.Upgrades[line]
+	if not def then
+		return 1
+	end
+	if not Config.Rebirth.HeadStartLines[line] then
+		return 1
+	end
+
+	local head = math.min(rebirths * Config.Rebirth.HeadStartPerRebirth, Config.Rebirth.MaxHeadStart)
+	return math.clamp(1 + head, 1, #def.Levels)
 end
 
 function Config.pitTier(index: number)
