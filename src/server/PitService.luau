@@ -175,7 +175,7 @@ function PitService.setTier(pit, tierIndex: number)
 	pit.startedAt = os.clock()
 
 	-- Wajib ikut direset. Kalau tidak, pengosongan kolam kedua dan
-	-- seterusnya tidak pernah diumumkan dan hadiah gems tidak keluar.
+	-- seterusnya tidak pernah diumumkan dan rekor waktunya tidak tercatat.
 	pit.announced = false
 
 	PitService.sync(pit)

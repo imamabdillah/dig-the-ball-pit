@@ -80,8 +80,9 @@ Tidak ada yang perlu disusun tangan di Workspace.
 - Kantong penuh, jalan ke **kolom hijau** — penjualan otomatis saat masuk radius
 - Tiga tombol di bawah layar untuk upgrade
 - Kolam kosong → tombol **REBIRTH** muncul. Rebirth menghapus seluruh belanjaan
-  dan cash, menyimpan gems, menambah pengali cash permanen, dan pada ambang
-  tertentu membuka kolam yang lebih besar
+  dan cash, menyimpan gems dan rekor, mengalikan cash secara berlipat
+  (`1,6^n`), memberi tier alat dan kantong gratis, dan pada ambang tertentu
+  membuka kolam yang lebih besar
 
 ## Satu kolam per pemain
 
@@ -173,5 +174,7 @@ bisa dibatalkan.
   bawah pemain yang berdiri. Hilang di minggu 4 saat kolam jadi mesh.
 - **Longsor tanpa efek visual.** Angkanya bekerja lewat baris HUD, animasinya
   minggu 3.
-- **Gems belum ada gunanya.** Wadahnya sudah ada; barang hilang dan buku
-  koleksi yang memakainya masuk minggu 3.
+- **Gems selalu nol.** Disengaja. Gems hanya datang dari barang temuan langka,
+  dan tabel rarity itu masuk minggu 3. Pengosongan kolam sengaja TIDAK memberi
+  gems — peristiwa itu sudah punya hadiahnya sendiri berupa rebirth, dan
+  menumpuk mata uang kedua di sana melemahkan keduanya.

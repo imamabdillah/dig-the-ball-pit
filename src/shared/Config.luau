@@ -226,13 +226,18 @@ Config.Rebirth = {
 }
 
 --[[
-	Gems dari mengosongkan kolam. Belum ada gunanya sampai barang hilang
-	dan buku koleksi masuk di minggu 3 - ini hanya wadah supaya hadiah
-	pengosongan sudah ada bentuknya.
+	Gems HANYA datang dari barang temuan langka, tidak dari mana pun lagi.
+
+	Sempat ada hadiah gems per pengosongan kolam. Itu keliru: pengosongan
+	sudah punya hadiahnya sendiri - rebirth, dengan pengali dan tier awal
+	gratis. Menumpuk mata uang kedua di peristiwa yang sama melemahkan
+	keduanya, dan membuat gems terasa seperti angka yang naik sendiri
+	daripada bukti bahwa kamu menemukan sesuatu yang langka.
+
+	Tabel rarity dan sinknya masuk di minggu 3. Sampai itu ada, gems
+	memang tetap nol - dan itu keadaan yang jujur, bukan yang perlu
+	ditambal dengan sumber palsu.
 ]]
-Config.ClearReward = {
-	GemsPerTier = { 25, 150, 900, 5000, 30000 },
-}
 
 -- ---------------------------------------------------------------- simpan
 

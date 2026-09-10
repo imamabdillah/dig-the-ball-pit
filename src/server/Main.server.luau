@@ -349,9 +349,13 @@ local function onPitCleared(player: Player, pit)
 
 	local data = profile.data
 	local seconds = math.floor(PitService.elapsed(pit))
-	local gems = Config.ClearReward.GemsPerTier[pit.tierIndex] or 0
 
-	data.gems += gems
+	--[[
+		Tidak ada gems di sini. Pengosongan kolam sudah punya hadiahnya
+		sendiri - rebirth, dengan pengali dan tier awal gratis. Gems hanya
+		datang dari barang temuan langka, supaya angkanya selalu berarti
+		"aku menemukan sesuatu", bukan "waktu berlalu".
+	]]
 	data.pitsCleared += 1
 	if data.bestClearSeconds == 0 or seconds < data.bestClearSeconds then
 		data.bestClearSeconds = seconds
@@ -359,11 +363,10 @@ local function onPitCleared(player: Player, pit)
 	PlayerData.sync(player)
 
 	notify(player, string.format(
-		"%s kosong dalam %d:%02d — +%d gems. Rebirth sekarang.",
+		"%s kosong dalam %d:%02d — rebirth sekarang.",
 		pit.tierName,
 		math.floor(seconds / 60),
-		seconds % 60,
-		gems
+		seconds % 60
 	))
 
 	print(string.format(
